@@ -4,7 +4,7 @@ python:
 
 # ── Only run when triggered via the API or Travis UI manually ─────────────────
 # Disables automatic triggering on git push and pull requests
-if: type = api
+if: type != push AND type != pull_request
 
 env:
   global:
