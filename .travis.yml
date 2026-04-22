@@ -1,0 +1,46 @@
+language: python
+python:
+  - "3.11"
+
+# ── Only run when triggered via the API or Travis UI manually ─────────────────
+# Disables automatic triggering on git push and pull requests
+if: type = api
+
+env:
+  global:
+    # ── Defaults (all overridable at trigger time) ────────────────────────────
+    - CSV_GLOB="domains/*.csv"
+    - REQUEST_DELAY="0.5"
+    - COMMIT_REPORTS="true"
+    - TARGET_BRANCH="main"
+    # GITHUB_TOKEN must be set in Travis CI environment variables (never here)
+
+install:
+  - pip install -r requirements.txt
+
+script:
+  - echo "──────────────────────────────────────────────────"
+  - echo "  CSV_GLOB       = ${CSV_GLOB}"
+  - echo "  REQUEST_DELAY  = ${REQUEST_DELAY}"
+  - echo "  COMMIT_REPORTS = ${COMMIT_REPORTS}"
+  - echo "  TARGET_BRANCH  = ${TARGET_BRANCH}"
+  - echo "──────────────────────────────────────────────────"
+  - python check_domains.py ${CSV_GLOB} --delay ${REQUEST_DELAY}
+
+after_success:
+  - |
+    if [ "${COMMIT_REPORTS}" = "true" ]; then
+      echo "Committing reports to ${TARGET_BRANCH}…"
+      git config user.name  "Travis CI"
+      git config user.email "travis@travis-ci.com"
+      git remote set-url origin https://${GITHUB_TOKEN}@github.com/${TRAVIS_REPO_SLUG}.git
+      git add domains/report_*.csv
+      if git diff --cached --quiet; then
+        echo "No report changes to commit — skipping."
+      else
+        git commit -m "ci: update domain health reports [skip ci]"
+        git push origin HEAD:${TARGET_BRANCH}
+      fi
+    else
+      echo "COMMIT_REPORTS=false — reports available in build log only."
+    fi
